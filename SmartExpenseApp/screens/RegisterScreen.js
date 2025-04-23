@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { COLORS } from '../utils/colors';
 
@@ -48,15 +49,36 @@ const RegisterScreen = ({ navigation }) => {
     if (!validateInputs()) return;
 
     try {
+      console.log('Sending register request:', { username, email, password });
+      // Xóa tất cả key onboardingCompleted_*
+      const allKeys = await AsyncStorage.getAllKeys();
+      const onboardingKeys = allKeys.filter((key) => key.startsWith('onboardingCompleted_'));
+      if (onboardingKeys.length > 0) {
+        await AsyncStorage.multiRemove(onboardingKeys);
+        console.log('Cleared previous onboardingCompleted keys:', onboardingKeys);
+      }
       const response = await axios.post('http://192.168.1.4:8000/api/register/', {
         username,
         email,
         password,
       });
-      Alert.alert('Thành công', 'Đăng ký thành công!');
-      navigation.navigate('Login');
+      console.log('Register response:', response.data);
+      await AsyncStorage.setItem('userToken', response.data.token);
+      await AsyncStorage.setItem('username', username);
+      console.log('Saved token:', response.data.token);
+      console.log('Saved username:', username);
+      navigation.replace('Login');
     } catch (error) {
-      Alert.alert('Lỗi', 'Đăng ký thất bại, vui lòng thử lại');
+      console.error('Register error:', error.message, error.response?.data, error.response?.status);
+      let errorMessage = 'Đăng ký thất bại';
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.username || error.response?.data?.email) {
+        errorMessage = Object.values(error.response.data).join(', ');
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      Alert.alert('Lỗi', errorMessage);
     }
   };
 

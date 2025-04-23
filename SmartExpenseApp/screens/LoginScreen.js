@@ -41,7 +41,7 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     if (!validateInputs()) return;
-  
+
     try {
       console.log('Sending login request:', { username, password });
       const response = await axios.post('http://192.168.1.4:8000/api/login/', {
@@ -50,14 +50,18 @@ const LoginScreen = ({ navigation }) => {
       });
       console.log('Login response:', response.data);
       await AsyncStorage.setItem('userToken', response.data.token);
-      const onboardingCompleted = await AsyncStorage.getItem('onboardingCompleted');
-      if (onboardingCompleted) {
-        navigation.navigate('Home');
+      await AsyncStorage.setItem('username', username);
+      console.log('Saved token:', response.data.token);
+      console.log('Saved username:', username);
+      const onboardingCompleted = await AsyncStorage.getItem(`onboardingCompleted_${username}`);
+      console.log(`OnboardingCompleted for ${username}:`, onboardingCompleted);
+      if (onboardingCompleted === 'true') {
+        navigation.replace('TabNavigator');
       } else {
-        navigation.navigate('Onboarding');
+        navigation.replace('Onboarding');
       }
     } catch (error) {
-      console.error('Login error:', error.response?.data || error.message);
+      console.error('Login error:', error.response?.data, error.response?.status);
       Alert.alert('Lỗi', error.response?.data?.error || 'Đăng nhập thất bại');
     }
   };
@@ -143,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: COLORS.white + 'CC', // Màu trắng trong suốt
+    backgroundColor: COLORS.white + 'CC',
   },
   logo: {
     width: 150,

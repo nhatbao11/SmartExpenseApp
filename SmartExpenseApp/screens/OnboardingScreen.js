@@ -28,10 +28,11 @@ const OnboardingScreen = ({ navigation }) => {
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      console.log('Token:', token);
-      if (!token) {
-        Alert.alert('Lỗi', 'Không tìm thấy token, vui lòng đăng nhập lại');
-        navigation.navigate('Login');
+      const username = await AsyncStorage.getItem('username');
+      console.log('Token:', token, 'Username:', username);
+      if (!token || !username) {
+        Alert.alert('Lỗi', 'Không tìm thấy thông tin đăng nhập, vui lòng đăng nhập lại');
+        navigation.replace('Login');
         return;
       }
 
@@ -47,13 +48,16 @@ const OnboardingScreen = ({ navigation }) => {
         }
       );
       console.log('API response:', response.data);
-      await AsyncStorage.setItem('onboardingCompleted', 'true');
-      navigation.replace('Home');
+      await AsyncStorage.setItem(`onboardingCompleted_${username}`, 'true');
+      console.log(`Saved onboardingCompleted for ${username}: true`);
+      const savedOnboarding = await AsyncStorage.getItem(`onboardingCompleted_${username}`);
+      console.log(`Verified onboardingCompleted for ${username}:`, savedOnboarding);
+      navigation.replace('TabNavigator');
     } catch (error) {
-      console.error('API error:', error.response?.data, error.response?.status, error.message);
+      console.error('API error:', error.response?.data, error.response?.status);
       Alert.alert(
         'Lỗi',
-        error.response?.data?.detail || error.message || 'Không thể lưu số dư, vui lòng thử lại'
+        error.response?.data?.error || error.message || 'Không thể lưu số dư, vui lòng thử lại'
       );
     }
   };

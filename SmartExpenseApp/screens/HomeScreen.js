@@ -1,59 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { COLORS } from '../utils/colors';
 
 const HomeScreen = ({ navigation }) => {
-  const [balance, setBalance] = useState(0);
-  const [income, setIncome] = useState(0);
-  const [expense, setExpense] = useState(0);
-  const [transactions, setTransactions] = useState([]);
+  const [data, setData] = useState({
+    current_balance: 0,
+    total_income: 0,
+    total_expense: 0,
+    recent_transactions: [],
+  });
+  const [username, setUsername] = useState('');
 
   useEffect(() => {
-    const fetchHomeData = async () => {
+    const fetchData = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
+        const storedUsername = await AsyncStorage.getItem('username');
+        console.log('HomeScreen: Fetching data with token:', token);
+        console.log('HomeScreen: Username:', storedUsername);
+        if (storedUsername) setUsername(storedUsername);
         const response = await axios.get('http://192.168.1.4:8000/api/home/', {
-          headers: { Authorization: `Token ${token}` },
+          headers: {
+            Authorization: `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
-        setBalance(response.data.current_balance);
-        setIncome(response.data.total_income);
-        setExpense(response.data.total_expense);
-        setTransactions(response.data.recent_transactions);
+        console.log('HomeScreen: API response:', response.data);
+        setData(response.data);
       } catch (error) {
-        console.error('Home error:', error);
+        console.error('HomeScreen: API error:', error.response?.data);
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          await AsyncStorage.removeItem('userToken');
+          await AsyncStorage.removeItem('username');
+          navigation.replace('Login');
+        }
       }
     };
-    fetchHomeData();
-  }, []);
+    fetchData();
+  }, [navigation]);
 
-  const renderTransaction = ({ item }) => (
-    <View style={styles.transactionItem}>
-      <View>
-        <Text style={styles.transactionDescription}>{item.description || item.category}</Text>
-        <Text style={styles.transactionDate}>
-          {new Date(item.created_at).toLocaleDateString()}
-        </Text>
-      </View>
-      <Text
-        style={[
-          styles.transactionAmount,
-          { color: item.transaction_type === 'INCOME' ? COLORS.primary : COLORS.error },
-        ]}
-      >
-        {item.transaction_type === 'INCOME' ? '+' : '-'}{item.amount} VND
-      </Text>
-    </View>
-  );
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('username');
+    console.log('Cleared userToken and username');
+    navigation.replace('Login');
+  };
 
   return (
     <LinearGradient
@@ -61,42 +55,41 @@ const HomeScreen = ({ navigation }) => {
       style={styles.container}
     >
       <View style={styles.header}>
-        <Image source={require('../assets/logo.png')} style={styles.logo} />
-        <Text style={styles.headerTitle}>Quản Lý Chi Tiêu</Text>
-      </View>
-      <View style={styles.content}>
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Số dư hiện tại</Text>
-          <Text style={styles.balanceAmount}>{balance.toLocaleString()} VND</Text>
-          <View style={styles.summary}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Thu nhập</Text>
-              <Text style={[styles.summaryAmount, { color: COLORS.primary }]}>
-                +{income.toLocaleString()} VND
-              </Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Chi tiêu</Text>
-              <Text style={[styles.summaryAmount, { color: COLORS.error }]}>
-                -{expense.toLocaleString()} VND
-              </Text>
-            </View>
-          </View>
-        </View>
-        <Text style={styles.sectionTitle}>Giao dịch gần đây</Text>
-        <FlatList
-          data={transactions}
-          renderItem={renderTransaction}
-          keyExtractor={(item) => item.id.toString()}
-          ListEmptyComponent={<Text style={styles.emptyText}>Chưa có giao dịch</Text>}
-        />
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate('AddTransaction')} // Tạo sau
-        >
-          <Text style={styles.fabText}>+</Text>
+        <Text style={styles.welcomeText}>Chào {username || 'Khách'}!</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>
       </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Tổng quan tài chính</Text>
+        <Text style={styles.balance}>
+          Số dư: {data.current_balance.toLocaleString()} VND
+        </Text>
+        <View style={styles.summary}>
+          <Text style={styles.income}>
+            Thu nhập: {data.total_income.toLocaleString()} VND
+          </Text>
+          <Text style={styles.expense}>
+            Chi tiêu: {data.total_expense.toLocaleString()} VND
+          </Text>
+        </View>
+      </View>
+
+      <Text style={styles.subtitle}>Giao dịch gần đây</Text>
+      <FlatList
+        data={data.recent_transactions}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.transaction}>
+            <Text style={styles.transactionText}>
+              {item.description}: {item.amount.toLocaleString()} VND
+            </Text>
+            <Text style={styles.transactionType}>{item.transaction_type}</Text>
+          </View>
+        )}
+        style={styles.transactionList}
+      />
     </LinearGradient>
   );
 };
@@ -107,110 +100,91 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: COLORS.white + 'CC',
+    paddingTop: 40,
   },
-  logo: {
-    width: 40,
-    height: 40,
-    marginRight: 10,
-  },
-  headerTitle: {
+  welcomeText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.white,
   },
-  content: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: COLORS.white + 'CC',
+  logoutButton: {
+    backgroundColor: COLORS.error,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
-  balanceCard: {
+  logoutText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  card: {
     backgroundColor: COLORS.white,
-    borderRadius: 10,
+    borderRadius: 12,
+    marginHorizontal: 20,
     padding: 20,
-    marginBottom: 20,
-    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 5,
+    shadowRadius: 4,
+    elevation: 5,
+    marginBottom: 20,
   },
-  balanceLabel: {
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  balanceAmount: {
-    fontSize: 28,
+  cardTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginVertical: 10,
+    marginBottom: 10,
+  },
+  balance: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: 10,
   },
   summary: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: COLORS.text,
-  },
-  summaryAmount: {
+  income: {
     fontSize: 16,
-    fontWeight: 'bold',
+    color: COLORS.success,
   },
-  sectionTitle: {
+  expense: {
+    fontSize: 16,
+    color: COLORS.error,
+  },
+  subtitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: COLORS.white,
+    marginHorizontal: 20,
     marginBottom: 10,
   },
-  transactionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  transactionList: {
+    marginHorizontal: 20,
+  },
+  transaction: {
     backgroundColor: COLORS.white,
     borderRadius: 8,
     padding: 15,
     marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     elevation: 2,
   },
-  transactionDescription: {
+  transactionText: {
     fontSize: 16,
     color: COLORS.text,
   },
-  transactionDate: {
-    fontSize: 12,
+  transactionType: {
+    fontSize: 14,
     color: COLORS.text + '80',
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: COLORS.text,
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: COLORS.secondary,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 5,
-  },
-  fabText: {
-    fontSize: 30,
-    color: COLORS.white,
-    fontWeight: 'bold',
   },
 });
 

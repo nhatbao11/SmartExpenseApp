@@ -10,7 +10,7 @@ from django.db.models import Sum
 from rest_framework.permissions import AllowAny
 
 class RegisterView(APIView):
-    permission_classes = [AllowAny]  # ✅ THÊM DÒNG NÀY
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = UserSerializer(data=request.data)
@@ -45,18 +45,12 @@ class InitialBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        user = request.user
         initial_balance = request.data.get('initial_balance')
-        print('Received initial_balance:', initial_balance)  # Debug
-        print('User:', user)  # Debug
-        if not initial_balance or float(initial_balance) < 0:
-            return Response(
-                {'error': 'Số dư ban đầu không hợp lệ'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        user.initial_balance = initial_balance
-        user.save()
-        return Response({'message': 'Số dư ban đầu đã được lưu'}, status=status.HTTP_200_OK)
+        if initial_balance is None or initial_balance < 0:
+            return Response({'error': 'Số dư ban đầu không hợp lệ'}, status=400)
+        request.user.initial_balance = initial_balance
+        request.user.save()
+        return Response({'message': 'Số dư ban đầu đã được lưu'}, status=200)
 
 class HomeView(APIView):
     permission_classes = [IsAuthenticated]
