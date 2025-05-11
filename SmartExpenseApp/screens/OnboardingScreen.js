@@ -13,6 +13,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { COLORS } from '../utils/colors';
+import { API_BASE_URL } from '../utils/config';
 
 const OnboardingScreen = ({ navigation }) => {
   const [initialBalance, setInitialBalance] = useState('');
@@ -38,7 +39,7 @@ const OnboardingScreen = ({ navigation }) => {
 
       console.log('Sending request to API...');
       const response = await axios.post(
-        'http://192.168.1.4:8000/api/initial-balance/',
+        `${API_BASE_URL}/api/initial-balance/`,
         { initial_balance: Number(initialBalance) },
         {
           headers: {

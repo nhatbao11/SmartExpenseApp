@@ -15,6 +15,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { COLORS } from '../utils/colors';
+import { API_BASE_URL } from '../utils/config';
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
@@ -44,15 +45,22 @@ const LoginScreen = ({ navigation }) => {
 
     try {
       console.log('Sending login request:', { username, password });
-      const response = await axios.post('http://192.168.1.4:8000/api/login/', {
+      const response = await axios.post(`${API_BASE_URL}/api/login/`, {
         username,
         password,
       });
       console.log('Login response:', response.data);
-      await AsyncStorage.setItem('userToken', response.data.token);
+
+      // Lưu token, username, và userId vào AsyncStorage
+      const { token, user_id } = response.data;
+      await AsyncStorage.setItem('userToken', token);
       await AsyncStorage.setItem('username', username);
-      console.log('Saved token:', response.data.token);
+      await AsyncStorage.setItem('userId', user_id.toString()); // Lưu userId dưới dạng chuỗi
+
+      console.log('Saved token:', token);
       console.log('Saved username:', username);
+      console.log('Saved userId:', user_id);
+
       const onboardingCompleted = await AsyncStorage.getItem(`onboardingCompleted_${username}`);
       console.log(`OnboardingCompleted for ${username}:`, onboardingCompleted);
       if (onboardingCompleted === 'true') {

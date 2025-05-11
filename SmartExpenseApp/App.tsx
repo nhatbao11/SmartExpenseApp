@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { TouchableOpacity, View, StyleSheet } from 'react-native';
+
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -14,89 +15,127 @@ import CategoryScreen from './screens/CategoryScreen';
 import SearchScreen from './screens/SearchScreen';
 import { COLORS } from './utils/colors';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const TabNavigator = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      tabBarIcon: ({ focused, color, size }) => {
+// ✅ Fix lỗi 'state' implicitly has 'any' type bằng cách gán kiểu `BottomTabBarProps`
+const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
+  return (
+    <View style={styles.tabBar}>
+      {state.routes.map((route, index) => {
+        const { options } = descriptors[route.key];
+        const isFocused = state.index === index;
+
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        };
+
         let iconName;
         if (route.name === 'Home') iconName = 'home';
         else if (route.name === 'Chart') iconName = 'bar-chart';
-        else if (route.name === 'Add') iconName = 'add-circle';
+        else if (route.name === 'Add') iconName = 'add';
         else if (route.name === 'Category') iconName = 'category';
         else if (route.name === 'Search') iconName = 'search';
-        return <Icon name={iconName!} size={size} color={color} />;
-      },
-      tabBarActiveTintColor: COLORS.primary,
-      tabBarInactiveTintColor: COLORS.text + '80',
-      tabBarStyle: {
-        backgroundColor: COLORS.white,
-        borderTopWidth: 0,
-        elevation: 5,
-        height: 60,
-        paddingBottom: 5,
-      },
-      tabBarLabelStyle: {
-        fontSize: 12,
-        fontWeight: 'bold',
-      },
-      headerShown: false,
-    })}
-  >
-    <Tab.Screen name="Home" component={HomeScreen} />
-    <Tab.Screen name="Chart" component={ChartScreen} />
-    <Tab.Screen name="Add" component={AddScreen} />
-    <Tab.Screen name="Category" component={CategoryScreen} />
-    <Tab.Screen name="Search" component={SearchScreen} />
-  </Tab.Navigator>
-);
+
+        if (route.name === 'Add') {
+          return (
+            <TouchableOpacity
+              key={route.key}
+              onPress={onPress}
+              style={styles.addButton}
+            >
+              <Icon name={iconName!} size={30} color={COLORS.white} />
+            </TouchableOpacity>
+          );
+        }
+
+        return (
+          <TouchableOpacity
+            key={route.key}
+            onPress={onPress}
+            style={styles.tabItem}
+          >
+            <Icon
+              name={iconName!}
+              size={25}
+              color={isFocused ? COLORS.primary : COLORS.text}
+            />
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
+
+const TabNavigator = () => {
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Chart" component={ChartScreen} />
+      <Tab.Screen name="Add" component={AddScreen} />
+      <Tab.Screen name="Category" component={CategoryScreen} />
+      <Tab.Screen name="Search" component={SearchScreen} />
+    </Tab.Navigator>
+  );
+};
 
 const App = () => {
-  const [initialRoute, setInitialRoute] = useState('Login');
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log('Checking auth status...');
-        const token = await AsyncStorage.getItem('userToken');
-        console.log('Token found:', token);
-        setInitialRoute(token ? 'TabNavigator' : 'Login');
-      } catch (error) {
-        console.error('Error checking auth:', error);
-        setInitialRoute('Login');
-      }
-    };
-    checkAuth();
-  }, []);
-
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={initialRoute}>
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Register"
-          component={RegisterScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Onboarding"
-          component={OnboardingScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="TabNavigator"
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
+      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen name="TabNavigator" component={TabNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.white,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    borderTopWidth: 0,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  addButton: {
+    backgroundColor: COLORS.primary,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 30,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+});
 
 export default App;

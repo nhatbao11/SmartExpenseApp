@@ -15,6 +15,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { COLORS } from '../utils/colors';
+import { API_BASE_URL } from '../utils/config';
 
 const RegisterScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
@@ -51,13 +52,13 @@ const RegisterScreen = ({ navigation }) => {
     try {
       console.log('Sending register request:', { username, email, password });
       // Xóa tất cả key onboardingCompleted_*
-      const allKeys = await AsyncStorage.getAllKeys();
-      const onboardingKeys = allKeys.filter((key) => key.startsWith('onboardingCompleted_'));
-      if (onboardingKeys.length > 0) {
-        await AsyncStorage.multiRemove(onboardingKeys);
-        console.log('Cleared previous onboardingCompleted keys:', onboardingKeys);
-      }
-      const response = await axios.post('http://192.168.1.4:8000/api/register/', {
+      // const allKeys = await AsyncStorage.getAllKeys();
+      // const onboardingKeys = allKeys.filter((key) => key.startsWith('onboardingCompleted_'));
+      // if (onboardingKeys.length > 0) {
+      //   await AsyncStorage.multiRemove(onboardingKeys);
+      //   console.log('Cleared previous onboardingCompleted keys:', onboardingKeys);
+      // }
+      const response = await axios.post(`${API_BASE_URL}/api/register/`, {
         username,
         email,
         password,
