@@ -1,45 +1,34 @@
 from rest_framework import serializers
-from .models import User, Transaction, Category
-import re
+from .models import User, Category, Transaction
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'email', 'password']
+        fields = ['id', 'username', 'password']
         extra_kwargs = {'password': {'write_only': True}}
 
-    def validate_username(self, value):
-        if not value.strip():
-            raise serializers.ValidationError("Tên đăng nhập không được để trống")
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Tên đăng nhập đã tồn tại")
-        return value
-
-    def validate_email(self, value):
-        if not value:
-            raise serializers.ValidationError("Email không được để trống")
-        if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', value):
-            raise serializers.ValidationError("Email không hợp lệ")
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email đã được sử dụng")
-        return value
-
-    def validate_password(self, value):
-        if len(value) < 6:
-            raise serializers.ValidationError("Mật khẩu phải có ít nhất 6 ký tự")
-        return value
-
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password']
-        )
+        user = User(**validated_data)
+        user.set_password(validated_data['password'])
+        user.save()
         return user
 
+class CategorySerializer(serializers.ModelSerializer):
+    user_id = serializers.SerializerMethodField()  # Thêm để trả về user_id
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'type', 'icon', 'user_id', 'is_default']
+
+    def get_user_id(self, obj):
+        return obj.user.id if obj.user else None  # Trả về user.id hoặc None
+
 class TransactionSerializer(serializers.ModelSerializer):
-    category = serializers.CharField(source='category.name', read_only=True)
+    category_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Transaction
-        fields = ['id', 'amount', 'transaction_type', 'category', 'description', 'created_at']
+        fields = ['id', 'description', 'amount', 'transaction_type', 'category', 'category_name', 'created_at']
+
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category else None
